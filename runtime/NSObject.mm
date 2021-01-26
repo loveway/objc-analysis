@@ -107,8 +107,9 @@ enum HaveNew { DontHaveNew = false, DoHaveNew = true };
 struct SideTable {
     // 自旋锁，保证线程安全
     spinlock_t slock;
-    //
+    // 引用计数表，每个对象的引用计数保存在全局的引用计数表中，一个对象的地址对应一个引用计数
     RefcountMap refcnts;
+    // weak 表，所有的 weak 变量都会加入到这个表中，key 就是 weak 修饰的这个对象的地址，value 就是指向这个对象的指针
     weak_table_t weak_table;
 
     SideTable() {
@@ -742,6 +743,7 @@ private:
         return (next - begin() < (end() - begin()) / 2);
     }
 
+    // 将对象添加到自动释放池
     id *add(id obj)
     {
         ASSERT(!full());
@@ -898,10 +900,17 @@ private:
 
     static inline id *autoreleaseFast(id obj)
     {
+        // 当前正在使用的这个 AutoreleasePoolPage 对象
         AutoreleasePoolPage *page = hotPage();
         if (page && !page->full()) {
+            // 如果当前使用的 page 存在并且未存满，则向当前 page 添加 obj 这个对象
             return page->add(obj);
         } else if (page) {
+            // 如果当前使用的 page 存在并且已存满，则会通过当前 page 的 child 指针找到下一页，如果下一
+            // 页也满了，继续通过 child 向下查找
+            // 如果找到了，就将未满的这页设置为 hotPage，并将 obj 添加到这一页里
+            // 如果没找到，就新建一个 page，将这个新的这个 page 设置为 hotPage，并将 obj 添加到这一页里
+
             return autoreleaseFullPage(obj, page);
         } else {
             return autoreleaseNoPage(obj);
@@ -994,6 +1003,7 @@ public:
     }
 
 
+    // 这个方法返回的就是一个哨兵对象 POOL_BOUNDARY，也就是 nil
     static inline void *push() 
     {
         id *dest;

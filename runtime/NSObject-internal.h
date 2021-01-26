@@ -123,9 +123,12 @@ struct magic_t {
 class AutoreleasePoolPage;
 struct AutoreleasePoolPageData
 {
+    // 用于对当前 AutoreleasePoolPage 完整性的校验
 	magic_t const magic;
 	__unsafe_unretained id *next;
+    // 当前页所在的线程
 	pthread_t const thread;
+    // 双指针存储，parent、child 分别指向上一页和下一页
 	AutoreleasePoolPage * const parent;
 	AutoreleasePoolPage *child;
 	uint32_t const depth;

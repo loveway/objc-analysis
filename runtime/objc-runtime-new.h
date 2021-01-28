@@ -908,10 +908,13 @@ class list_array_tt {
             // many lists -> many lists
             uint32_t oldCount = array()->count;
             uint32_t newCount = oldCount + addedCount;
+            // 数组扩容为 newCount 大小
             setArray((array_t *)realloc(array(), array_t::byteSize(newCount)));
             array()->count = newCount;
+            // 将数组原来的内容整体向后移动，移动的出来的位置刚好是 addedCount 的大小
             memmove(array()->lists + addedCount, array()->lists, 
                     oldCount * sizeof(array()->lists[0]));
+            // 将新添加进来的内容拷贝到数组的最前面，这样整个数组合并完成，新增加来的内容就在最前面了
             memcpy(array()->lists, addedLists, 
                    addedCount * sizeof(array()->lists[0]));
         }

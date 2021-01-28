@@ -2987,13 +2987,14 @@ map_images(unsigned count, const char * const paths[],
     return map_images_nolock(count, paths, mhdrs);
 }
 
-
+// 加载 category
 static void load_categories_nolock(header_info *hi) {
     bool hasClassProperties = hi->info()->hasCategoryClassProperties();
 
     size_t count;
     auto processCatlist = [&](category_t * const *catlist) {
         for (unsigned i = 0; i < count; i++) {
+            // 在编译时，就已经将 category 结构体存入 catlist 了，现在是一个个取出
             category_t *cat = catlist[i];
             Class cls = remapClass(cat->cls);
             locstamped_category_t lc{cat, hi};
@@ -3024,12 +3025,14 @@ static void load_categories_nolock(header_info *hi) {
                     cat->protocols ||
                     (hasClassProperties && cat->_classProperties))
                 {
+                    // 把类和 category 做一个关联映射
                     objc::unattachedCategories.addForClass(lc, cls);
                 }
             } else {
                 // First, register the category with its target class.
                 // Then, rebuild the class's method lists (etc) if
                 // the class is realized.
+                // 把 category 的实例方法、协议以及属性添加到类上
                 if (cat->instanceMethods ||  cat->protocols
                     ||  cat->instanceProperties)
                 {
@@ -3039,7 +3042,7 @@ static void load_categories_nolock(header_info *hi) {
                         objc::unattachedCategories.addForClass(lc, cls);
                     }
                 }
-
+                // 把 category 的类方法和协议添加到类的 metaclass 上
                 if (cat->classMethods  ||  cat->protocols
                     ||  (hasClassProperties && cat->_classProperties))
                 {

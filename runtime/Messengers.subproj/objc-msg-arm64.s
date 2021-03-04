@@ -266,7 +266,7 @@ LExit$0:
 LLookupStart$1:
 
 	// p1 = SEL, p16 = isa
-	ldr	p11, [x16, #CACHE]				// p11 = mask|buckets
+	ldr	p11, [x16, #CACHE]				// p11 = mask|buckets 查找缓存
 
 #if CACHE_MASK_STORAGE == CACHE_MASK_STORAGE_HIGH_16
 	and	p10, p11, #0x0000ffffffffffff	// p10 = buckets
@@ -288,9 +288,11 @@ LLookupStart$1:
 	ldp	p17, p9, [x12]		// {imp, sel} = *bucket
 1:	cmp	p9, p1			// if (bucket->sel != _cmd)
 	b.ne	2f			//     scan more
+    // 缓存中命中以后，返回 imp
 	CacheHit $0			// call or return imp
 	
 2:	// not hit: p12 = not-hit bucket
+    // 没有命中
 	CheckMiss $0			// miss if bucket->sel == 0
 	cmp	p12, p10		// wrap if bucket == buckets
 	b.eq	3f
@@ -352,19 +354,22 @@ _objc_debug_taggedpointer_classes:
 _objc_debug_taggedpointer_ext_classes:
 	.fill 256, 8, 0
 #endif
-
+    // 汇编实现提高效率，因为这个方法调用实在太多了
 	ENTRY _objc_msgSend
 	UNWIND _objc_msgSend, NoFrame
-
+    // 判断消息接收者是不是 nil ，支不支持 tagged pointer
 	cmp	p0, #0			// nil check and tagged pointer check
 #if SUPPORT_TAGGED_POINTERS
+    // 支持 tagged pointer 跳转到 LNilOrTagged
 	b.le	LNilOrTagged		//  (MSB tagged pointer looks negative)
 #else
+    // 不支持直接跳到 LReturnZero
 	b.eq	LReturnZero
 #endif
 	ldr	p13, [x0]		// p13 = isa
 	GetClassFromIsa_p16 p13		// p16 = class
 LGetIsaDone:
+    // 如果 receiver 不为 nil 直接先去查找缓存
 	// calls imp or objc_msgSend_uncached
 	CacheLookup NORMAL, _objc_msgSend
 
@@ -515,6 +520,7 @@ LLookup_Nil:
 	// receiver and selector already in x0 and x1
 	mov	x2, x16
 	mov	x3, #3
+    // 跳转到 _lookUpImpOrForward，在 C 语言中对应的就是 lookUpImpOrForward（少一个_，所以我们全局搜索 lookUpImpOrForward 就可以找到对应的实现）
 	bl	_lookUpImpOrForward
 
 	// IMP in x0
@@ -546,6 +552,7 @@ LLookup_Nil:
 	MethodTableLookup
 	TailCallFunctionPointer x17
 
+    // 没有命中进入到 __objc_msgSend_uncached
 	END_ENTRY __objc_msgSend_uncached
 
 
@@ -554,7 +561,7 @@ LLookup_Nil:
 
 	// THIS IS NOT A CALLABLE C FUNCTION
 	// Out-of-band p16 is the class to search
-	
+	// 这里进入，然后调用 _lookUpImpOrForward
 	MethodTableLookup
 	ret
 

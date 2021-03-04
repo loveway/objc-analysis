@@ -3082,6 +3082,7 @@ load_images(const char *path __unused, const struct mach_header *mh)
 {
     if (!didInitialAttachCategories && didCallDyldNotifyRegister) {
         didInitialAttachCategories = true;
+        // 先将所有的分类合并到类，所以说是 category 是先于 + load 的
         loadAllCategories();
     }
 
